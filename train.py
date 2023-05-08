@@ -1,44 +1,47 @@
 import torch
 import torch.nn as nn
 from model import ResNet
-import numpy as np
-import pandas as pd
-from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 import time
 import torch.optim as optim
 from utils import DatasetOfDiv
-from utils import calculate_metrics
 from utils import getData
 import sys
-import sklearn
-from sklearn import preprocessing
 from utils import create_directory
+from dataloader import data_generator
+import argparse
+
 
 def train():
     best_model_directory = './best_model/' + dataset_name + '/'
     # 创建目录
     create_directory(best_model_directory)
-
-    # 加载数据
-    x_train, x_test, y_train, y_test, nb_classes = getData(dataset_name)
-
-    learning_rate=0.001
-    num_epochs = 150
+    # 训练参数
+    learning_rate = 0.001
+    num_epochs = 50
     best_acc = 0.0
-    min_loss =10000
+    min_loss = 10000
     # Device configuration
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    save_path=best_model_directory+'best_model.pth'
+    save_path = best_model_directory+'best_model.pth'
     batchSize = 64
     bestepoch=0
 
-    trainSet=DatasetOfDiv(x_train, y_train)
-    train_loader = DataLoader(dataset=trainSet, batch_size=batchSize, shuffle=True)
-    testSet=DatasetOfDiv(x_test, y_test)
-    test_loader = DataLoader(dataset=testSet, batch_size=batchSize, shuffle=False)
+    if dataset_name == "EEG":
+        best_model_directory = best_model_directory + src_id + '/'
+        create_directory(best_model_directory)
+        save_path = best_model_directory + 'best_model.pth'
+        train_loader, test_loader = data_generator(dataset_name, src_id)
+        nb_classes = 5
+    else:
+        # 加载数据
+        x_train, x_test, y_train, y_test, nb_classes = getData(dataset_name)
+        trainSet=DatasetOfDiv(x_train, y_train)
+        train_loader = DataLoader(dataset=trainSet, batch_size=batchSize, shuffle=True)
+        testSet=DatasetOfDiv(x_test, y_test)
+        test_loader = DataLoader(dataset=testSet, batch_size=batchSize, shuffle=False)
 
-    model = ResNet(in_channels=1,classes=nb_classes)
+    model = ResNet(in_channels=1, classes=nb_classes)
     model.to(device)
     # Loss and optimizer
     criterion = nn.CrossEntropyLoss()
@@ -50,7 +53,6 @@ def train():
 
     # Train the model
     start_time = time.time()
-    total_step = len(train_loader)/batchSize+1
     for epoch in range(num_epochs):
         model.train()
         epoch_loss=0
@@ -109,5 +111,11 @@ def train():
 
 # 训练
 if __name__ == '__main__':
-    dataset_name = sys.argv[1]
+    # dataset_name = sys.argv[1]
+    parser = argparse.ArgumentParser(description="train")
+    parser.add_argument('--data', default='EEG', help='training dataset')
+    parser.add_argument("--scrID", default='0', help='domain_id')
+    args = parser.parse_args()
+    dataset_name = args.data
+    src_id = args.scrID
     train()

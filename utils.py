@@ -11,6 +11,8 @@ import math
 import torch.nn as nn
 from model import ResNet
 from tent import softmax_entropy
+from dataloader import data_generator
+
 
 
 class DatasetOfDiv(Dataset):
@@ -108,6 +110,19 @@ def getModel(dataset_name2, nb_classes):
     model.load_state_dict(torch.load(weights_path,map_location=torch.device('cpu')))  # cpu的时候
     return model
 
+def getModel_new(dataset_name, scr_id, nb_classes):
+    best_model_directory = './best_model/' + dataset_name + '/' + scr_id + '/'
+    # 加载模型
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    # create model
+    model = ResNet(classes=nb_classes).to(device)
+    # load model weights
+    weights_path = best_model_directory + 'best_model.pth'
+    assert os.path.exists(weights_path), "file: '{}' dose not exist.".format(weights_path)
+    # model.load_state_dict(torch.load(weights_path))  # GPU的时候
+    model.load_state_dict(torch.load(weights_path,map_location=torch.device('cpu')))  # cpu的时候
+    return model
+
 def clean_accuracy(model: nn.Module,
                    x: torch.Tensor,
                    y: torch.Tensor,
@@ -129,10 +144,14 @@ def clean_accuracy(model: nn.Module,
                        batch_size].to(device)
 
             output = model(x_curr)
+            # 当前batch的平均entropy
             entropy = softmax_entropy(output).mean(0)
+            # acc_curr为当前batch的正确预测的个数 acc为正确预测的个数之和
             acc_curr = (output.max(1)[1] == y_curr).float().sum()
             acc += (output.max(1)[1] == y_curr).float().sum()
+            # acc_curr_list为保存每一个batch的正确率列表
             acc_curr_list.append(acc_curr.item() / x_curr.shape[0])
+            # entropy_list为保存每一个batch的entropy的列表
             entropy_list.append(entropy.item())
             #acc_curr_list.append((acc_curr / x_curr.shape[0]).item().float())
             print('batch:[{}/{}], accuracy: {}, entropy: {}'.format(counter+1, n_batches,
@@ -150,3 +169,26 @@ def clean_accuracy(model: nn.Module,
 
 
     return acc.item() / x.shape[0], ent_mean
+
+def clean_accuracy_new(model: nn.Module,
+                   test_loader,
+                   device: torch.device = None):
+    with torch.no_grad():
+        correct = 0
+        total = 0
+        entropy = 0
+        for inputs, labels in test_loader:
+            inputs = inputs.to(device)
+            labels = labels.to(device)
+            outputs = model(inputs)
+            _, predicted = torch.max(outputs.data, 1)
+            # entropy为当前batch的平均entropy
+            entropy += softmax_entropy(outputs).mean(0)
+            # correct为每个batch的正确预测的个数之和
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+        acc = 100 * correct / total
+        entropy_mean = entropy.item() / len(test_loader)
+        print('Test accuracy of the model on the test: {} %'
+              .format(100 * correct / total))
+        return acc, entropy_mean
