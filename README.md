@@ -12,19 +12,19 @@ python train.py --data EEG --scrID 2
 
 ```python
 python mytent.py --data EEG
-				 --Sdata EEG
-    			 --scrID 1
-        		 --trgID 11
-            	 --steps 5
-                 --method tent
+--Sdata EEG
+--scrID 1
+--trgID 11
+--steps 5
+--method tent
 ```
 
 以上为EEG数据集 1-> 11 运行示例 (使用tent)。
 
 ```python
 python mytent.py --data FordA
-				 --Sdata FordB
-                 --method source
+--Sdata FordB
+--method source
 ```
 
 以上为数据集 FordB-> FordA 运行示例（不使用tent）。
